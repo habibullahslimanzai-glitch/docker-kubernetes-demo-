@@ -20,9 +20,8 @@ spec:
     spec:
       containers:
         - name: iris-api
-         image: ghcr.io/habibullahslimanzai-glitch/iris-ml-api:latest
-
+          image: ghcr.io/habibullahslimanzai-glitch/iris-ml-api:latest
           imagePullPolicy: IfNotPresent
-
           ports:
             - containerPort: 5000
+
