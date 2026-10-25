@@ -29,3 +29,7 @@ jobs:
 
       - name: Run model tests
         run: pytest -s mlops/test_model.py
+        
+      - name: Build Docker image
+        run: docker build -t mlops-iris:latest ./mlops
+
