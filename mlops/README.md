@@ -1,6 +1,6 @@
 
 
-# Week 8: MLOps and Machine Learning Lifecycle
+# MLOps and Machine Learning Lifecycle
 
 ## Project
 End-to-End MLOps Pipeline for a Machine Learning Model
