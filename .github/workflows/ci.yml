@@ -1,0 +1,31 @@
+
+name: MLOps CI Pipeline
+
+on:
+  push:
+    paths:
+      - 'mlops/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'mlops/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  test-model:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r mlops/requirements.txt pytest
+
+      - name: Run model tests
+        run: pytest -s mlops/test_model.py
