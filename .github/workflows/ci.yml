@@ -51,4 +51,27 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/iris-ml-api:latest
 
+      - name: Create Kubernetes cluster
+        uses: helm/kind-action@v1.12.0
+
+      - name: Deploy ML API to Kubernetes
+        run: |
+          kubectl apply -f mlops/k8s/deployment.yaml
+          kubectl apply -f mlops/k8s/service.yaml
+          kubectl rollout status deployment/iris-ml-api --timeout=180s
+
+      - name: Test deployed API
+        run: |
+          kubectl port-forward service/iris-ml-service 8080:80 > /tmp/port-forward.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/; then
+              echo "Kubernetes API test passed!"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/port-forward.log
+          kubectl get pods
+          exit 1
+
 
