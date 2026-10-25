@@ -6,7 +6,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY train.py .
-COPY test_model.py .
+COPY app.py .
+COPY iris_model.joblib .
 
-CMD ["python", "train.py"]
+EXPOSE 5000
+
+CMD ["python", "app.py"]
