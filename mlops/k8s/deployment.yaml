@@ -20,7 +20,8 @@ spec:
     spec:
       containers:
         - name: iris-api
-          image: mlops-iris:latest
+         image: ghcr.io/habibullahslimanzai-glitch/iris-ml-api:latest
+
           imagePullPolicy: IfNotPresent
 
           ports:
