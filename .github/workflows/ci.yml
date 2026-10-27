@@ -60,18 +60,30 @@ jobs:
           kubectl apply -f mlops/k8s/service.yaml
           kubectl rollout status deployment/iris-ml-api --timeout=180s
 
+      
       - name: Test deployed API
         run: |
-          kubectl port-forward service/iris-ml-service 8080:80 > /tmp/port-forward.log 2>&1 &
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/; then
-              echo "Kubernetes API test passed!"
-              exit 0
+          kubectl port-forward service/iris-ml-service 8080:80 >/tmp/port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then
+              break
             fi
             sleep 2
           done
-          cat /tmp/port-forward.log
-          kubectl get pods
-          exit 1
 
+          curl -fsS http://127.0.0.1:8080/
+          echo
+
+          response=$(curl -fsS -X POST http://127.0.0.1:8080/predict \
+            -H "Content-Type: application/json" \
+            -d '{"features":[5.1,3.5,1.4,0.2]}')
+
+          echo "$response"
+
+          echo "$response" | python -c "import json,sys; d=json.load(sys.stdin); assert d['flower_name']=='setosa' and d['predicted_class']==0"
+
+          echo "Kubernetes prediction API test passed!"
 
