@@ -6,16 +6,41 @@ on:
     paths:
       - 'mlops/**'
       - '.github/workflows/ci.yml'
+
   pull_request:
     paths:
       - 'mlops/**'
       - '.github/workflows/ci.yml'
-      
+
+  workflow_dispatch:
+    inputs:
+      sepal_length:
+        description: 'Sepal length in cm'
+        required: true
+        type: number
+        default: 5.1
+
+      sepal_width:
+        description: 'Sepal width in cm'
+        required: true
+        type: number
+        default: 3.5
+
+      petal_length:
+        description: 'Petal length in cm'
+        required: true
+        type: number
+        default: 1.4
+
+      petal_width:
+        description: 'Petal width in cm'
+        required: true
+        type: number
+        default: 0.2
+
 permissions:
   contents: read
   packages: write
-
-
 
 jobs:
   test-model:
@@ -35,8 +60,7 @@ jobs:
 
       - name: Run model tests
         run: pytest -s mlops/test_model.py
-        
-      
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -60,30 +84,57 @@ jobs:
           kubectl apply -f mlops/k8s/service.yaml
           kubectl rollout status deployment/iris-ml-api --timeout=180s
 
-      
       - name: Test deployed API
+        env:
+          SEPAL_LENGTH: ${{ inputs.sepal_length || '5.1' }}
+          SEPAL_WIDTH: ${{ inputs.sepal_width || '3.5' }}
+          PETAL_LENGTH: ${{ inputs.petal_length || '1.4' }}
+          PETAL_WIDTH: ${{ inputs.petal_width || '0.2' }}
         run: |
           kubectl port-forward service/iris-ml-service 8080:80 >/tmp/port-forward.log 2>&1 &
           PF_PID=$!
           trap 'kill $PF_PID 2>/dev/null || true' EXIT
 
-          for i in $(seq 1 20); do
+          READY=0
+          for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/ >/dev/null; then
+              READY=1
               break
             fi
             sleep 2
           done
 
+          if [ "$READY" -ne 1 ]; then
+            echo "ERROR: API did not become ready"
+            cat /tmp/port-forward.log
+            exit 1
+          fi
+
+          echo "API is ready:"
           curl -fsS http://127.0.0.1:8080/
           echo
 
+          echo "Flower features:"
+          echo "Sepal length: $SEPAL_LENGTH"
+          echo "Sepal width: $SEPAL_WIDTH"
+          echo "Petal length: $PETAL_LENGTH"
+          echo "Petal width: $PETAL_WIDTH"
+
           response=$(curl -fsS -X POST http://127.0.0.1:8080/predict \
             -H "Content-Type: application/json" \
-            -d '{"features":[5.1,3.5,1.4,0.2]}')
+            -d "{\"features\":[${SEPAL_LENGTH},${SEPAL_WIDTH},${PETAL_LENGTH},${PETAL_WIDTH}]}")
 
+          echo "Prediction result:"
           echo "$response"
 
-          echo "$response" | python -c "import json,sys; d=json.load(sys.stdin); assert d['flower_name']=='setosa' and d['predicted_class']==0"
+          echo "$response" | python -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          names = ['setosa', 'versicolor', 'virginica']
+          p = d.get('predicted_class')
+          assert isinstance(p, int) and not isinstance(p, bool) and p in [0, 1, 2], 'Invalid predicted class'
+          assert d.get('flower_name') == names[p], 'Flower name and predicted class do not match'
+          print('Prediction validation passed!')
+          "
 
           echo "Kubernetes prediction API test passed!"
-
